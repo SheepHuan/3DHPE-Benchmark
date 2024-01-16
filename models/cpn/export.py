@@ -10,15 +10,15 @@ def export_cpn_to_onnx(save_path):
 
     model = CPN101(output_shape,num_class,False).eval()
 
-    img = torch.randn([1,3,384,288],dtype=torch.float32)
+    img = torch.randn([1,3,256,256],dtype=torch.float32)
     
-    global_outputs, refine_output = model([img])
+    global_outputs, refine_output = model(img)
     
     torch.onnx.export(
         model,
         img,
         save_path,
-        input_names=["img1"],
+        input_names=["img"],
         opset_version=18
     )
     

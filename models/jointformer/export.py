@@ -47,7 +47,7 @@ def export_joint_former_to_onnx(save_path):
         model,
         kp_2d_in,
         save_path,
-        export_params=True,
+        input_names=["2d_kp"]
     )
     
     

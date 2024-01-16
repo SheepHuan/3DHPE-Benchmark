@@ -10,7 +10,7 @@ from torch import nn
 
 from models.trianglehpe.utils import op, multiview, img, misc, volumetric
 
-from models.trianglehpe.triangulation import pose_resnet
+import models.trianglehpe.pose_resnet as pose_resnet
 from models.trianglehpe.v2v import V2VModel
 
 
@@ -242,7 +242,7 @@ class VolumetricTriangulationNet(nn.Module):
         self.volume_net = V2VModel(32, self.num_joints)
 
 
-    def forward(self, images, proj_matricies, batch):
+    def forward(self, images, proj_matricies,keypoints_3ds):
         device = images.device
         batch_size, n_views = images.shape[:2]
 
@@ -268,39 +268,39 @@ class VolumetricTriangulationNet(nn.Module):
         if self.volume_aggregation_method == 'conf_norm':
             vol_confidences = vol_confidences / vol_confidences.sum(dim=1, keepdim=True)
 
-        # change camera intrinsics
-        new_cameras = deepcopy(batch['cameras'])
-        for view_i in range(n_views):
-            for batch_i in range(batch_size):
-                new_cameras[view_i][batch_i].update_after_resize(image_shape, heatmap_shape)
+        # # change camera intrinsics
+        # # new_cameras = deepcopy(batch['cameras'])
+        # for view_i in range(n_views):
+        #     for batch_i in range(batch_size):
+        #         new_cameras[view_i][batch_i].update_after_resize(image_shape, heatmap_shape)
 
-        proj_matricies = torch.stack([torch.stack([torch.from_numpy(camera.projection) for camera in camera_batch], dim=0) for camera_batch in new_cameras], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
-        proj_matricies = proj_matricies.float().to(device)
+        # proj_matricies = torch.stack([torch.stack([torch.from_numpy(camera.projection) for camera in camera_batch], dim=0) for camera_batch in new_cameras], dim=0).transpose(1, 0)  # shape (batch_size, n_views, 3, 4)
+        # proj_matricies = proj_matricies.float().to(device)
 
         # build coord volumes
-        cuboids = []
+        # cuboids = []
         base_points = torch.zeros(batch_size, 3, device=device)
         coord_volumes = torch.zeros(batch_size, self.volume_size, self.volume_size, self.volume_size, 3, device=device)
         for batch_i in range(batch_size):
             # if self.use_precalculated_pelvis:
-            if self.use_gt_pelvis:
-                keypoints_3d = batch['keypoints_3d'][batch_i]
-            else:
-                keypoints_3d = batch['pred_keypoints_3d'][batch_i]
+            # if self.use_gt_pelvis:
+            #     keypoints_3d = batch['keypoints_3d'][batch_i]
+            # else:
+            #     keypoints_3d = batch['pred_keypoints_3d'][batch_i]
+            # keypoints_3d=keypoints_3ds[batch_i]
+            # if self.kind == "coco":
+            #     base_point = (keypoints_3d[11, :3] + keypoints_3d[12, :3]) / 2
+            # elif self.kind == "mpii":
+            base_point = keypoints_3ds[batch_i][6, :3]
 
-            if self.kind == "coco":
-                base_point = (keypoints_3d[11, :3] + keypoints_3d[12, :3]) / 2
-            elif self.kind == "mpii":
-                base_point = keypoints_3d[6, :3]
-
-            base_points[batch_i] = torch.from_numpy(base_point).to(device)
+            base_points[batch_i] = base_point
 
             # build cuboid
-            sides = np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])
+            sides = torch.from_numpy(np.array([self.cuboid_side, self.cuboid_side, self.cuboid_side])).to(torch.float32)
             position = base_point - sides / 2
             cuboid = volumetric.Cuboid3D(position, sides)
 
-            cuboids.append(cuboid)
+            # cuboids.append(cuboid)
 
             # build coord volume
             xxx, yyy, zzz = torch.meshgrid(torch.arange(self.volume_size, device=device), torch.arange(self.volume_size, device=device), torch.arange(self.volume_size, device=device))
@@ -315,17 +315,15 @@ class VolumetricTriangulationNet(nn.Module):
             coord_volume = grid_coord.reshape(self.volume_size, self.volume_size, self.volume_size, 3)
 
             # random rotation
-            if self.training:
-                theta = np.random.uniform(0.0, 2 * np.pi)
-            else:
-                theta = 0.0
+            # if self.training:
+            #     theta = np.random.uniform(0.0, 2 * np.pi)
+            # else:
+            theta = 0.0
 
-            if self.kind == "coco":
-                axis = [0, 1, 0]  # y axis
-            elif self.kind == "mpii":
-                axis = [0, 0, 1]  # z axis
+        
+            axis = [0, 0, 1]  # z axis
 
-            center = torch.from_numpy(base_point).type(torch.float).to(device)
+            center = base_point
 
             # rotate
             coord_volume = coord_volume - center
@@ -352,4 +350,4 @@ class VolumetricTriangulationNet(nn.Module):
         volumes = self.volume_net(volumes)
         vol_keypoints_3d, volumes = op.integrate_tensor_3d_with_coordinates(volumes * self.volume_multiplier, coord_volumes, softmax=self.volume_softmax)
 
-        return vol_keypoints_3d, features, volumes, vol_confidences, cuboids, coord_volumes, base_points
+        return vol_keypoints_3d, features, volumes, vol_confidences, coord_volumes

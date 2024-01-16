@@ -16,4 +16,5 @@ def export_srnet_to_onnx(save_path):
         model_pos,
         kp_2d,
         save_path,
+        input_names=["2d_kp"]
     )
