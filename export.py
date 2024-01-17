@@ -6,7 +6,7 @@ from models.posenet3d.export import export_posenet3d_to_onnx
 from models.mobilehumanpose.export import export_mobileposenet3d_to_onnx
 from models.maskrcnn.export import export_maskrcnn_to_onnx
 from models.trianglehpe.export import export_triangulation_to_onnx
-
+from models.corssfusion.export import export_corss_fusion
 
 if __name__=="__main__":
     # export_joint_former_to_onnx("tmp/jointformer.onnx")
@@ -16,5 +16,6 @@ if __name__=="__main__":
     # export_maskrcnn_to_onnx("tmp/maskrcnn.onnx")
     # export_posenet3d_to_onnx("tmp/posenet3d.onnx")
     # export_mobileposenet3d_to_onnx("tmp/mobileposener3d.onnx")
-    # export_maskrcnn_to_onnx("tmp/maskrcnn.onnx")
+    
+    # export_corss_fusion("tmp/crossfusion.onnx")
     export_triangulation_to_onnx("tmp/tr.onnx")

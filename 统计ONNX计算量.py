@@ -1,20 +1,6 @@
 import numpy as np
 import onnx_tool
-# def profile_model_maskrcnn(modelpath):
-#     import onnx_tool
-#     m = onnx_tool.Model(modelpath)
 
-
-#     m.graph.shape_infer({'image.1': np.random.rand(3, 300,400).astype(np.float32),
-#                          'image.5': np.random.rand(3, 300,400).astype(np.float32),})  # update new resolution
-#     m.graph.profile()
-#     m.graph.print_node_map()  # remove ops from the profile
-    
-
-# # path="tmp/onnx/mobileposenet3d.onnx"
-# # path="tmp/jointformer.onnx"
-# path="tmp/maskrcnn.onnx"
-# profile_model_maskrcnn(path)
 
 
 def proile_cpn(path):
@@ -96,12 +82,22 @@ def profile_tr(path):
     # keypoints_3d=[torch.randn(*[17, 4],dtype=torch.float32)]
     # out = model(images,proj_matricies,keypoints_3d)
     onnx_tool.model_profile(path, {
-        'images': np.random.rand(1,4,3,256,256).astype(np.float32),
-        'proj_matricies': np.random.rand(1, 4, 3, 4).astype(np.float32),
+        'images': np.random.rand(1,2,3,256,256).astype(np.float32),
+        'proj_matricies': np.random.rand(1, 2, 3, 4).astype(np.float32),
          'keypoints_3d': [np.random.rand(17,4).astype(np.float32)],
         
         },savenode='tmp/tr.txt') 
-  
+    
+def profile_yolov6(path):
+    onnx_tool.model_profile(path, {
+        'images': np.random.rand(1,3,256,256).astype(np.float32),
+        },savenode='tmp/yolov6.txt') 
+
+def profile_crossfusion(path):
+    onnx_tool.model_profile(path, {
+        'images': np.random.rand(2,3,256,256).astype(np.float32),
+        },savenode='tmp/crossfusion.txt') 
+
 if __name__=="__main__":
     
     # proile_cpn("tmp/cpn.onnx")
@@ -111,3 +107,7 @@ if __name__=="__main__":
     # profile_posenet("tmp/posenet3d.onnx")
     # profile_mobileposenet3d("tmp/mobileposener3d.onnx")
     profile_tr("tmp/tr.onnx")
+    
+    # proile_maskrcnn("tmp/maskrcnn.onnx")
+    # profile_yolov6("tmp/yolov6l.onnx")
+    # profile_crossfusion("tmp/crossfusion.onnx")
