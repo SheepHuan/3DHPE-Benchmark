@@ -1,7 +1,7 @@
 _base_ = ['../../../_base_/default_runtime.py']
 
 # runtime
-train_cfg = dict(max_epochs=600, val_interval=20, dynamic_intervals=[(580, 1)])
+train_cfg = dict(max_epochs=200, val_interval=20, dynamic_intervals=[(580, 1)])
 
 auto_scale_lr = dict(base_batch_size=256)
 
@@ -116,8 +116,8 @@ dataset_coco = dict(
 )
 
 train_dataloader = dict(
-    batch_size=16,
-    num_workers=8,
+    batch_size=22,
+    num_workers=16,
     persistent_workers=True,
     pin_memory=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
