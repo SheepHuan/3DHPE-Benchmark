@@ -124,6 +124,9 @@ class MultiViewHuman36M(SingleHuman36M):
             "image": image_data_numpy
         }
 
+    def __len__(self):
+        return len(self.db)
+
     @staticmethod
     def visualize(item,save_path):
         image = item["image"]
