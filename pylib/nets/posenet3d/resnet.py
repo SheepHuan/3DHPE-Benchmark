@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision.models.resnet import BasicBlock, Bottleneck
-from torchvision.models.resnet import model_urls
+# from torchvision.models.resnet import model_urls
 
 class ResNetBackbone(nn.Module):
 
@@ -65,12 +65,12 @@ class ResNetBackbone(nn.Module):
 
         return x
 
-    def init_weights(self):
-        org_resnet = torch.utils.model_zoo.load_url(model_urls[self.name])
-        # drop orginal resnet fc layer, add 'None' in case of no fc layer, that will raise error
-        org_resnet.pop('fc.weight', None)
-        org_resnet.pop('fc.bias', None)
-        self.load_state_dict(org_resnet)
-        print("Initialize resnet from model zoo")
+    # def init_weights(self):
+    #     org_resnet = torch.utils.model_zoo.load_url(model_urls[self.name])
+    #     # drop orginal resnet fc layer, add 'None' in case of no fc layer, that will raise error
+    #     org_resnet.pop('fc.weight', None)
+    #     org_resnet.pop('fc.bias', None)
+    #     self.load_state_dict(org_resnet)
+    #     print("Initialize resnet from model zoo")
 
 

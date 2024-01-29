@@ -16,7 +16,16 @@ def cam2pixel(cam_coord, f, c):
     img_coord = np.concatenate((x[:,None], y[:,None], z[:,None]),1)
     return img_coord
 
+def pixel2cam(pixel_coord, f, c):
+    x = (pixel_coord[:, 0] - c[0]) / f[0] * pixel_coord[:, 2]
+    y = (pixel_coord[:, 1] - c[1]) / f[1] * pixel_coord[:, 2]
+    z = pixel_coord[:, 2]
+    cam_coord = np.concatenate((x[:,None], y[:,None], z[:,None]),1)
+    return cam_coord
 
+def world2cam(world_coord, R, t):
+    cam_coord = np.dot(R, world_coord.transpose(1,0)).transpose(1,0) + t.reshape(1,3)
+    return cam_coord
 
 class SingleHuman36M(Dataset):
     """
@@ -25,8 +34,11 @@ class SingleHuman36M(Dataset):
     
     """
     
-    def __init__(self,dataset_root_path,is_train=False):
-        # super(self,Human36M).__init__()
+    def __init__(self,cfg,is_train=False):
+        super(SingleHuman36M,self).__init__()
+        self.cfg = cfg
+        
+        dataset_root_path = self.cfg.dataset_dir
         
         self.img_dir=osp.join(dataset_root_path,"images")
         self.annot_path=osp.join(dataset_root_path,"annot",f"h36m_{'train' if is_train else 'validation'}.pkl")
@@ -35,6 +47,7 @@ class SingleHuman36M(Dataset):
         self.db = [db_rec for db_rec in self.db if not self.isdamaged(db_rec)]
 
         
+        # self.db = self.db[0:int(0.01 * len(self.db))]
         
     def load_db(self, dataset_file):
         with open(dataset_file, 'rb') as f:
@@ -59,8 +72,13 @@ class SingleHuman36M(Dataset):
         else:
             return False
         return True
+    
+    def __len__(self):
+        return len(self.db)
 
     def __getitem__(self, idx):
+        # import time
+        # s = time.time()
         db_rec = copy.deepcopy(self.db[idx])
         image_file = osp.join(self.img_dir,
                             db_rec['image'])
@@ -72,7 +90,6 @@ class SingleHuman36M(Dataset):
         
         
         img_2d_pts = db_rec['joints_2d'].copy()
-        # joints_3d = db_rec['joints_3d'].copy()
         cam_3d_pts = db_rec['joints_3d_camera'].copy()
         cam_3d_pts_normed = cam_3d_pts - cam_3d_pts[0]
         keypoint_scale = np.linalg.norm(cam_3d_pts_normed[8] - cam_3d_pts_normed[0])
@@ -104,35 +121,21 @@ class SingleHuman36M(Dataset):
         img_3d_pts = cam2pixel(cam_3d_pts,[K[0][0],K[1][1]],[K[0][2],K[1][2]])
         
         
-        # 通过仿射变换裁剪图像
-        bbox = self.get_pts_bbox(img_3d_pts)
-        img_patch, trans = self.corp_image(rgb_img,bbox,[256,256])
+       
         
-        for i in range(len(img_3d_pts)):
-            # 仿射变换
-            img_3d_pts[i, 0:2] = trans_point2d(img_3d_pts[i, 0:2], trans)
-            
-            # 归一化
-            img_3d_pts[i, 2] /= (2000/2.) # expect depth lies in -bbox_3d_shape[0]/2 ~ bbox_3d_shape[0]/2 -> -1.0 ~ 1.0
-            img_3d_pts[i, 2] = (img_3d_pts[i,2] + 1.0)/2. # 0~1 normalize
-            joints_vis[i] *= (
-                            (img_3d_pts[i,0] >= 0) & \
-                            (img_3d_pts[i,0] < 256) & \
-                            (img_3d_pts[i,1] >= 0) & \
-                            (img_3d_pts[i,1] < 256) & \
-                            (img_3d_pts[i,2] >= 0) & \
-                            (img_3d_pts[i,2] < 1)
-                            )
-        
+        # e = time.time()
+        # print(e-s)
+        # 确保关键点都是
         return {
             "joints_vis": joints_vis,
             'img_2d_pts': img_2d_pts,
             'img_3d_pts': img_3d_pts,
-            'world_3d_pts': world_3d_pts, 
+            # 'world_3d_pts': world_3d_pts, 
             'cam_3d_pts': cam_3d_pts, 
             'cam_3d_pts_normed': cam_3d_pts_normed, 
-            "image": img_patch,
-            "KRT": [K,R,T]
+            "image": rgb_img,
+            "KRT": [K.astype(np.float32),R.astype(np.float32),T.astype(np.float32)],
+            # "bbox": bbox
         }
 
     def corp_image(self,image,bbox,target_shape):
@@ -163,30 +166,30 @@ class SingleHuman36M(Dataset):
         vis_2d = copy.deepcopy(image)
         for i in range(points_2d.shape[0]):
             vis_2d = cv2.circle(vis_2d, (int(points_2d[i][0]), int(points_2d[i][1])), 3, (0,0,255), -1)
-        # cv2.imwrite(save_path,vis_2d) 
-        plt.clf()
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')  
+        cv2.imwrite(save_path,vis_2d) 
+        # plt.clf()
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')  
         
-        x,y,z = img_3d_pts[:,0],img_3d_pts[:,1],img_3d_pts[:,2]
-        ax.scatter(x, y, z, c='r', marker='o')
-        # 设置坐标轴标签
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-        ax.view_init(elev=135, azim=90)  # 将Z轴朝向屏幕
+        # x,y,z = img_3d_pts[:,0],img_3d_pts[:,1],img_3d_pts[:,2]
+        # ax.scatter(x, y, z, c='r', marker='o')
+        # # 设置坐标轴标签
+        # ax.set_xlabel('X')
+        # ax.set_ylabel('Y')
+        # ax.set_zlabel('Z')
+        # ax.view_init(elev=135, azim=90)  # 将Z轴朝向屏幕
 
-        plt.savefig(save_path)
+        # plt.savefig(save_path)
 
-    def get_pts_bbox(self,coords):
+    def get_pts_bbox(self,coords,shape):
         # 计算最小和最大坐标值
-        min_x = np.min(coords[:, 0])
-        max_x = np.max(coords[:, 0])
-        min_y = np.min(coords[:, 1])
-        max_y = np.max(coords[:, 1])
+        min_x = max(np.min(coords[:, 0])*0.95,0)
+        max_x = min(np.max(coords[:, 0])*1.05,shape[1])
+        min_y = max(np.min(coords[:, 1])*0.95,0)
+        max_y = min(np.max(coords[:, 1])*1.05,shape[0])
 
         # 构建边界框
-        bbox = [min_x, min_y, max_x-min_x, max_y-min_y]
+        bbox = [min_x , min_y, max_x-min_x, max_y-min_y]
         
         return bbox  
 
@@ -240,8 +243,12 @@ def trans_point2d(pt_2d, trans):
 
 if __name__=="__main__":
     dataset_root_path="/dataset/Human3.6M/"
-    
-    dataset = SingleHuman36M(dataset_root_path)
+    import os
+    import sys
+    sys.path.append("/root/code/3DHPE-Benchmark/pylib")
+    from configs.config import Config
+    cfg = Config()
+    dataset = SingleHuman36M(cfg)
     
     for idx,item in enumerate(dataset):
         os.makedirs("tmp/vis/",exist_ok=True)
